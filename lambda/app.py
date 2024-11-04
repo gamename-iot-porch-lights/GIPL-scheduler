@@ -44,11 +44,11 @@ def schedule_illumination(trigger_time, message):
     )
 
     # Generate a unique name for the scheduled rule
-    rule_name = f"turn_porch_lights_{message}_at_{trigger_time_formatted.strftime('%Y%m%d_%H%M%S')}"
-    print(f"rule_name:\n{rule_name}")
+    rule_name = f"turn_porch_lights_{message}_today_at_{trigger_time_formatted.strftime('%H%M')}_UTC"
+    print(f"rule_name:\r{rule_name}")
 
     account_id = get_account_id()
-    print(f"account_id:\n{account_id}")
+    print(f"account_id:\r{account_id}")
 
     # Create the scheduled rule
     response = eventbridge.create_schedule(
@@ -57,13 +57,13 @@ def schedule_illumination(trigger_time, message):
         Target={
             'Arn': f'arn:aws:lambda:us-east-1:{account_id}:function:GIPL-illuminator',
             'RoleArn': f'arn:aws:iam::{account_id}:role/lambda-invoke-role',
-            'Input': f'{{"message": "{message}"}}'
+            'Input': f'{{"light_switch": "{message}", "schedule_name": "{rule_name}"}}'
         },
         FlexibleTimeWindow={
             'Mode': 'OFF'
         }
     )
-    print(f"response:\n{response}")
+    print(f"response:\r{response}")
 
 
 def lambda_handler(event, context):
