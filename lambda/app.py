@@ -31,24 +31,20 @@ def get_twilight_times(latitude, longitude):
     if not sunrise_utc or not sunset_utc:
         raise ValueError("Sunrise or sunset time not found in the response")
 
-    # Parse sunrise and sunset times to datetime objects in UTC
-    sunrise_time = datetime.strptime(sunrise_utc, '%H:%M').replace(
-        year=date.year, month=date.month, day=date.day
-    )
-    sunset_time = datetime.strptime(sunset_utc, '%H:%M').replace(
-        year=date.year, month=date.month, day=date.day
-    )
-
-    print(f"Sunrise UTC: {sunrise_time}, Sunset UTC: {sunset_time}")
-
-    return sunrise_time, sunset_time
+    return sunrise_utc, sunset_utc
 
 
 def schedule_illumination(trigger_time, message):
     eventbridge = boto3.client('scheduler')
 
+    date = datetime.now()  # Today's date
+
+    trigger_time_formatted = datetime.strptime(trigger_time, '%H:%M').replace(
+        year=date.year, month=date.month, day=date.day
+    )
+
     # Generate a unique name for the scheduled rule
-    rule_name = f"led_control_{message}_{trigger_time.strftime('%Y%m%d%H%M%S')}"
+    rule_name = f"turn_porch_lights_{message}_at_{trigger_time_formatted.strftime('%Y%m%d_%H%M%S')}"
     print(f"rule_name:\n{rule_name}")
 
     account_id = get_account_id()
@@ -57,7 +53,7 @@ def schedule_illumination(trigger_time, message):
     # Create the scheduled rule
     response = eventbridge.create_schedule(
         Name=rule_name,
-        ScheduleExpression=f"at({trigger_time.strftime('%Y-%m-%dT%H:%M:%S')})",
+        ScheduleExpression=f"at({trigger_time_formatted.strftime('%Y-%m-%dT%H:%M:%S')})",
         Target={
             'Arn': f'arn:aws:lambda:us-east-1:{account_id}:function:GIPL-illuminator',
             'RoleArn': f'arn:aws:iam::{account_id}:role/lambda-invoke-role',
@@ -81,6 +77,7 @@ def lambda_handler(event, context):
     Returns:
     - dict: A dictionary containing the status code and body message.
     """
+
     latitude = os.environ['LATITUDE']
     longitude = os.environ['LONGITUDE']
 
@@ -90,5 +87,5 @@ def lambda_handler(event, context):
         print(f"Error fetching data from USNO API: {e}")
         return {"statusCode": 500, "body": str(e)}
 
-    schedule_illumination(sunrise, "ON")
-    schedule_illumination(sunset, "OFF")
+    schedule_illumination(sunrise, "OFF")
+    schedule_illumination(sunset, "ON")
