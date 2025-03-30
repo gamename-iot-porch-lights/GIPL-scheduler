@@ -17,7 +17,6 @@ def get_account_id():
 
 
 def get_twilight_times_from_ddb(date):
-    """Fetch sunrise and sunset times from twilight-times DynamoDB table."""
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('twilight-times')
     date_str = date.strftime('%Y-%m-%d')
@@ -33,18 +32,15 @@ def get_twilight_times_from_ddb(date):
 
 
 def schedule_illumination(trigger_time_local, local_timezone_name, message):
-    """Schedule illumination using local time from DynamoDB."""
     eventbridge = boto3.client('scheduler')
 
     local_tz = pytz.timezone('America/Chicago')
     date = datetime.now(local_tz).date()
 
-    # Parse local trigger time with today's date
     trigger_time_local_formatted = datetime.strptime(trigger_time_local, '%H:%M').replace(
         year=date.year, month=date.month, day=date.day
     )
 
-    # Convert local time to UTC for EventBridge
     trigger_time_local_dt = local_tz.localize(trigger_time_local_formatted)
     trigger_time_utc_formatted = trigger_time_local_dt.astimezone(pytz.utc)
 
@@ -62,7 +58,11 @@ def schedule_illumination(trigger_time_local, local_timezone_name, message):
         Target={
             'Arn': f'arn:aws:lambda:us-east-1:{account_id}:function:GIPL-illuminator',
             'RoleArn': f'arn:aws:iam::{account_id}:role/lambda-invoke-role',
-            'Input': f'{{"light_switch": "{message}", "schedule_name": "{rule_name}"}}'
+            'Input': f'{{"light_switch": "{message}", "schedule_name": "{rule_name}"}}',
+            'RetryPolicy': {
+                'MaximumRetryAttempts': 20,
+                'MaximumEventAgeInSeconds': 3600
+            }
         },
         FlexibleTimeWindow={'Mode': 'OFF'}
     )
